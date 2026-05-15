@@ -10,7 +10,7 @@ Bonjour Claude. Je suis **Obed** et je continue un projet portfolio appelé **Pu
 
 **PunchIQ — Boxing Analytics & Fight Prediction Platform.** Plateforme web qui prend deux boxeurs en entrée, prédit qui gagne avec une probabilité calibrée, et explique pourquoi via SHAP.
 
-C'est un **projet portfolio pour internship en software engineering**, mais c'est aussi un **projet d'apprentissage** : je suis débutant complet en ML et en Python. J'ai de l'expérience en Java (variables, classes). Tout le reste est nouveau.
+C'est un **projet portfolio pour internship en software engineering**, mais c'est aussi un **projet d'apprentissage** : je suis débutant en ML et Python. J'ai de l'expérience en Java. Tout le reste est nouveau.
 
 ## Mode de collaboration — IMPORTANT
 
@@ -20,7 +20,7 @@ C'est un **projet portfolio pour internship en software engineering**, mais c'es
 - Donne-moi des hints, pas le code complet
 - C'est moi qui tape le code, tu me guides
 - Pose des questions Socratiques pour ancrer les concepts
-- Concepts en français, terminologie ML en anglais (parce que toute la doc est en anglais)
+- Concepts en français, terminologie ML en anglais
 - Push-back honnête si une idée est faible — pas un yes-man
 - Avant un changement majeur, pose 2-3 questions de clarification
 - Pas d'emojis sauf si j'en utilise
@@ -28,33 +28,35 @@ C'est un **projet portfolio pour internship en software engineering**, mais c'es
 
 ## Tech stack verrouillé
 
-- **Python 3.14.0** (très récent — `df.append()` et autres méthodes obsolètes ont disparu en pandas 2.0+)
-- **pandas 3.0.2** (le type `str` remplace `object` pour strings)
-- numpy 2.4, scikit-learn 1.8, FastAPI, Pydantic v2, SHAP, joblib
+- **Python 3.14.0**
+- **pandas 3.0.2**, numpy 2.4, scikit-learn 1.8, SHAP 0.51, joblib, matplotlib 3.10
+- FastAPI, Pydantic v2 (pour Layer 7)
 - Frontend (plus tard) : React + TypeScript + Tailwind + Recharts
 - Déploiement (plus tard) : Render (API) + Vercel (UI)
 
 ## Décisions architecturales prises
 
 1. **Sport principal : boxe.** UFC en stretch goal post-MVP.
-2. **Architecture sport-agnostic** — colonne `sport` partout, modèles nommés `{sport}_predictor.pkl`. Permet d'ajouter UFC sans refactor.
-3. **Pas de scraper BoxRec dans le MVP.** Trop risqué pour 2-3 semaines.
-4. **Vertical slice first** — pipeline complet boxe avant d'ajouter quoi que ce soit.
-5. **Évaluer contre une baseline naïve** ("plus haut win% gagne") sur les combats compétitifs, pas juste accuracy globale.
-6. **Split aléatoire** (le dataset n'a pas de colonne date — pas de time-based split possible).
+2. **Architecture sport-agnostic** — colonne `sport` partout, modèles nommés `{sport}_predictor.pkl`.
+3. **Pas de scraper BoxRec dans le MVP.**
+4. **Vertical slice first** — pipeline complet boxe avant d'élargir.
+5. **Évaluer contre baseline naïve** ("plus haut win% gagne" ou "toujours win_A") — fait, RF bat la baseline naïve 50% par 31 points.
+6. **Split aléatoire** stratifié (pas de colonne date).
+7. **Symmetric encoding appliqué APRÈS le train/test split**, pas dans le CSV — évite le leakage de structure entre original et miroir.
+8. **Drop `stance_diff`** — l'imputation au mode a collapsé toute la variance, feature devenue constante.
 
 ## Timeline
 
-2-3 semaines intense. Aujourd'hui : **Layer 2 (data acquisition)** presque terminée, prêt à attaquer **Layer 3 (cleaning)**.
+2-3 semaines intense. **Layers 1-6 terminés.** Prochaine étape : **Layer 7 (API FastAPI)**.
 
-Plan en 10 layers (voir `plan.md`) :
+Plan en 10 layers :
 1. Scope & structure ✅
-2. Data acquisition ⏳ (en train de finir l'EDA)
-3. Cleaning ← prochaine étape
-4. Feature engineering
-5. Baseline models (LogReg → RF → GBM)
-6. Évaluation + SHAP
-7. API FastAPI
+2. Data acquisition + EDA ✅
+3. Cleaning ✅
+4. Train/test split + feature scaling ✅
+5. Baseline models (LogReg, RF, GBM) ✅ — RF winner à 80.9% accuracy
+6. Évaluation + SHAP ✅ — summary + waterfall plots interprétés
+7. **API FastAPI ← prochaine étape**
 8. Frontend React
 9. Charts + explainability UI
 10. Deploy + polish
@@ -64,123 +66,136 @@ Plan en 10 layers (voir `plan.md`) :
 ```
 C:\Users\obedm\Dev\Punch-IQ\
 ├── README.md, plan.md, .gitignore, docs/architecture.md, docs/handoff.md
-├── client/                 (vide pour l'instant — Layer 8)
+├── .venv\                        ⚠️ doublon (à nettoyer plus tard)
+├── client/                       (vide — Layer 8)
 └── server/
-    ├── .venv\               ← virtualenv créé et activé
-    ├── requirements.txt    ← installé (fastapi, pandas, sklearn, shap, ...)
+    ├── .venv\                    ← le venv utilisé par le kernel Jupyter
+    ├── requirements.txt          ← à mettre à jour avec matplotlib
     ├── .env.example
     ├── app/
-    │   ├── main.py         ← FastAPI skeleton avec /health
-    │   ├── core/config.py  ← settings via pydantic-settings
-    │   ├── api/, schemas/, services/  (vides)
+    │   ├── main.py               ← FastAPI skeleton avec /health
+    │   ├── core/config.py
+    │   ├── api/, schemas/, services/   (vides — Layer 7)
     ├── ml/
-    │   ├── features.py, train.py, evaluate.py, explain.py  (stubs vides)
+    │   ├── features.py, train.py, evaluate.py, explain.py   (stubs vides)
     ├── data/
-    │   └── raw/boxing/
-    │       ├── boxing_matches.csv   ← 387 427 lignes, 26 colonnes ⭐ LE bon
-    │       ├── fighters.csv          ← 2 760 boxeurs avec noms (annexe pour l'UI)
-    │       └── popular_matches.csv   ← 152 lignes (ignorer)
+    │   ├── raw/boxing/
+    │   │   ├── boxing_matches.csv      ← 387 427 lignes, 26 colonnes (source)
+    │   │   ├── fighters.csv            ← 2 760 boxeurs avec noms (pour UI plus tard)
+    │   │   └── popular_matches.csv     ← (ignoré)
+    │   └── processed/boxing/
+    │       └── boxing_cleaned.csv      ⭐ 362 655 × 9, pré-symmetric encoding
     ├── models/
+    │   ├── boxing_predictor.pkl        ⭐ Random Forest entraîné (compress=3)
+    │   └── boxing_scaler.pkl           ⭐ StandardScaler fitté sur train
     └── notebooks/
-        └── 01_eda.ipynb     ← en cours, j'ai tapé environ 7 cellules
+        ├── 01_eda.ipynb                ← exploration initiale
+        ├── 02_cleaning.ipynb           ← pipeline cleaning
+        └── 03_modeling.ipynb           ← split, scaling, training, SHAP
 ```
 
-## Le dataset principal — `boxing_matches.csv`
+## Ce qu'on a fait, en bref
 
-**387 427 combats × 26 colonnes :**
+### Layer 3 — Cleaning (`02_cleaning.ipynb`)
 
-```
-age_A, age_B, height_A, height_B, reach_A, reach_B,
-stance_A, stance_B, weight_A, weight_B,
-won_A, won_B, lost_A, lost_B, drawn_A, drawn_B, kos_A, kos_B,
-result, decision,
-judge1_A, judge1_B, judge2_A, judge2_B, judge3_A, judge3_B
-```
+- Drop 7 colonnes leakage : `judge1_A..judge3_B` + `decision` (info post-combat)
+- Drop draws (24 772 lignes) → classification binaire
+- Drop `reach_A` (71% NaN) et `reach_B` (90% NaN) — trop trouées pour imputer
+- Imputation : médiane pour numériques, mode pour stances
+- Création de 7 diff features : `age_diff`, `height_diff`, `weight_diff`, `won_diff`, `lost_diff`, `drawn_diff`, `kos_diff`
+- Encoding du label : `label = (result == "win_B").astype(int)`
+- **Sauvegarde du CSV pré-symmetric encoding** : `boxing_cleaned.csv` (362 655 × 9)
 
-⚠️ **Pas de colonne date** — on fera un split aléatoire au lieu de time-based.
+### Layer 4 — Préparation (`03_modeling.ipynb`)
 
-## Concepts ML que j'ai déjà appris
+- Drop `stance_diff` (constante après imputation → 0 info)
+- Train/test split stratifié 80/20 : 290k train, 72k test (avant doublage)
+- Symmetric encoding appliqué séparément sur chaque split : `apply_symmetric_encoding(X, y)` qui négate les 7 diffs et flippe le label
+- Après doublage : train 580 248 lignes, test 145 062 lignes — 50/50 balanced
+- `StandardScaler` fit sur train uniquement, transform sur les deux
 
-- Feature, label, convention X/y
-- Une row = un combat, pas un boxeur (entity table vs event table)
-- Overfitting + règle d'or : on évalue toujours sur des données jamais vues (train/test split)
-- Data leakage (les colonnes `judge*_*` et probablement `decision` sont post-combat → à jeter)
-- Valeurs manquantes (NaN) — différence "shape" vs "non-null count"
-- DataFrame, `df.head()`, `df.shape`, `df.info()`, `df.isna().sum()`, `df['col'].value_counts()`, chaining
+### Layer 5 — Modèles baseline
 
-## Concepts Python que j'ai déjà appris
+Résultats finaux sur test set balancé 50/50 :
 
-- Virtualenv (`python -m venv .venv`, activate)
-- pip install -r requirements.txt
-- import + alias (`import pandas as pd`)
-- Jupyter notebook workflow dans VS Code (Shift+Enter, kernel selection)
-- Différences syntaxiques Java → Python : pas de types déclarés, indentation au lieu d'accolades, `for x in list` au lieu de `for (X x : list)`
+| Modèle | Accuracy | F1 (macro) |
+|---|---|---|
+| Baseline naïve | 0.500 | 0.33 |
+| LogReg (max_iter=1000) | 0.7803 | 0.78 |
+| HistGradientBoosting (max_iter=200, lr=0.1, max_depth=8) | 0.7994 | 0.80 |
+| **Random Forest (n_estimators=100, max_depth=20)** | **0.8091** | **0.81** |
 
-## Découvertes EDA (résultats des dernières cellules)
+Surprenant : RF > GBM ici (sans doute parce que seulement 7 features). RF sérialisé via `joblib.dump(..., compress=3)`.
 
-**Valeurs manquantes** (`df.isna().sum().sort_values(ascending=False)`) :
+### Layer 6 — SHAP
 
-```
-reach_B     349 554 (90% manquant)
-judge*_*    317-335k chaque (à jeter de toute façon)
-reach_A     275 085 (71% manquant)
-weight_B    257 069 (66% manquant)
-height_B    252 787 (65% manquant)
-weight_A    251 854 (65% manquant)
-stance_A=stance_B  156 418 chaque (40% manquant — identiques, paired missing)
-height_A    138 181 (36% manquant)
-age_B       129 492 (33% manquant)
-age_A        34 539 (9% manquant)
-kos_B            79
-won_*, lost_*, drawn_*, kos_A, result, decision   → 0 manquant ✓
-```
+`TreeExplainer(rf)` sur un sample de 1000 lignes du test (le shap_values est 3D `(1000, 7, 2)` — slicer `[:, :, 1]` pour la classe positive).
 
-**Distribution du label `result` :**
-```
-win_A   321 661  (83.0%)   ← gros déséquilibre
-win_B    40 994  (10.6%)
-draw     24 772  (6.4%)
-```
+**Hiérarchie des features (SHAP summary plot)** :
+1. `lost_diff` — plus A a perdu, plus le modèle prédit `win_B`
+2. `won_diff` — plus A a gagné, plus le modèle prédit `win_A`
+3. `age_diff` — plus A est vieux, plus le modèle prédit `win_B` (le jeune gagne)
+4. `kos_diff` — plus A a de KO, plus le modèle prédit `win_A`
+5-7. `drawn_diff`, `height_diff`, `weight_diff` — quasi nulle contribution
 
-**Distribution `decision` :**
-```
-PTS   108 070  (points)
-TKO    89 709
-KO     70 940
-UD     62 290  (unanimous decision)
-NWS    19 369  (newspaper decision — combats anciens sans juges)
-SD     11 323  (split decision)
-MD      9 364  (majority decision)
-RTD     9 065  (retirement)
-DQ      4 831
-TD      2 466  (technical draw)
-```
+Convergence forte avec les coefficients LogReg → patterns robustes, pas un artefact du modèle.
 
-## Concept à m'enseigner ensuite — class imbalance + symmetric encoding
+**Waterfall plot fonctionnel** pour expliquer une prédiction individuelle — exactement ce que le produit promet en explainability UI (Layer 9).
 
-`win_A = 83%` = **gros problème de classes déséquilibrées**. Concepts à m'expliquer :
+## Concepts ML que j'ai appris dans la session précédente
 
-1. **Pourquoi accuracy seule ne suffit pas** — un modèle qui prédit toujours `win_A` aurait 83% sans rien apprendre.
-2. **Métriques par classe** : precision, recall, F1, macro-average.
-3. **Symmetric encoding** : pour chaque combat (A, B, win_A), créer aussi (B, A, win_B). Force le modèle à apprendre des features symétriques (`reach_diff = reach_A - reach_B`) plutôt que des stats absolues. Casse aussi le déséquilibre.
+- Class imbalance + pourquoi accuracy seule trompe
+- Precision, recall, F1 par classe, macro-F1
+- Confusion matrix (lecture, interprétation TP/FP/FN/TN)
+- Data leakage : info post-combat (decision, judges), info de structure (mirror dans train+test)
+- Symmetric encoding : doubler dataset + négater diffs + flipper label → balance 50/50
+- Diff features : encoder la symétrie structurellement
+- Imputation : médiane (robuste outliers) vs mode (catégoriel) — piège du mode qui collapse la variance
+- Train/test split, `stratify=y`, `random_state=42`
+- StandardScaler : fit on train, transform on both (règle universelle de prévention du leakage)
+- LogReg, RF, GBM — quand chacun brille
+- `feature_importances_` (RF) vs `coef_` (LogReg) vs SHAP (per-prediction)
+- `TreeExplainer`, `summary_plot`, `waterfall_plot`
 
-Une fois ces concepts ancrés (avec questions Socratiques pour vérifier ma compréhension), basculer en **Layer 3 (cleaning)** avec une session pandas où je code moi-même les transformations.
+## Concepts Python appris
 
-## Décisions Layer 3 à prendre ensemble
+- Notebook workflow : kernel state, ordre d'exécution, Run All, restart
+- pandas : `df.drop(columns=)`, boolean indexing `df[df["col"] != val]`, `df.fillna()`, `.median()`, `.mode()[0]`, `.astype(int)`, `pd.concat([...], ignore_index=True)`
+- f-strings : `f"{var}_suffix"`
+- For loop sur liste de strings
+- Fonctions : `def`, `return`, retour multiple en tuple
+- Joblib pour sérialiser les modèles sklearn
+- `!pip install` depuis Jupyter (vs terminal — piège : si le venv n'est pas activé, ça installe au mauvais endroit)
 
-- Drop `reach_B`, `weight_B`, `height_B` (trop de NaN) ou keep + imputer ?
-- Drop les décisions rares (NWS, TD) ou garder ?
-- Drop les colonnes `judge*` (data leakage) ✓ certain
-- Drop ou garder `decision` ? (probablement drop ou garder pour analyse seulement)
-- Stratégie symétrique pour gérer le déséquilibre
-- Comment enrichir avec `fighters.csv` (qui a les noms) pour l'UI plus tard
+## Tickets ouverts / dettes techniques
+
+1. **Deux `.venv` dans le repo** — `Punch-IQ/.venv` (utilisé par le kernel) et `Punch-IQ/server/.venv` (probablement vestige). À nettoyer.
+2. **`matplotlib` installé via `!pip install` mais pas (encore ?) ajouté à `server/requirements.txt`** — à vérifier et ajouter.
+3. **`stance_diff` dropped** — imputation par mode trop brutale. Stretch goal : imputer par sampling aléatoire selon la distribution observée des stances.
+4. **Tuning des hyperparamètres** — RF et GBM testés avec valeurs par défaut/raisonnables. Pas de GridSearch ni CV systématique. Stretch goal : `RandomizedSearchCV` pour grappiller des points.
+5. **Class weights / oversampling pas testés** — alternative au symmetric encoding qu'on n'a pas explorée. Note pour future itération.
+
+## Plan Layer 7 — API FastAPI
+
+L'objectif : exposer le modèle via une route HTTP, pour que le frontend (Layer 8) puisse l'appeler.
+
+Endpoints à implémenter :
+- `GET /health` — déjà là, juste à vérifier qu'il tourne
+- `POST /predict` — reçoit deux boxeurs (features), retourne probabilité + classe prédite
+- `POST /explain` — reçoit deux boxeurs, retourne probabilité + contributions SHAP par feature
+
+Décisions à prendre ensemble en Layer 7 :
+- Schéma Pydantic d'entrée : on demande les valeurs brutes (age_A, age_B, ...) ou les diffs pré-calculées ?
+- On expose `predict` et `explain` séparément, ou un seul endpoint qui retourne tout ?
+- Comment gérer le scaler (charger une seule fois au démarrage de l'app, pas à chaque requête) ?
+- Validation : que faire si des features sont manquantes côté requête ? (médiane par défaut comme à l'entraînement ?)
 
 ## Première action quand tu réponds
 
 Salue-moi brièvement, confirme que tu as bien lu le contexte, et propose la prochaine étape pédagogique. Format de réponse suggéré :
 
-> Salut Obed. J'ai pris la main : tu es à la fin de Layer 2 (EDA), avec un dataset de 387k combats fortement déséquilibré (83% win_A). Prochaine étape : t'expliquer le concept de class imbalance et de symmetric encoding avant d'attaquer le nettoyage.
+> Salut Obed. J'ai pris la main : tu as un RF à 80.9% sérialisé, SHAP fonctionnel, prêt à attaquer Layer 7 (API FastAPI). Avant qu'on code, je veux te poser 2-3 questions de clarification sur le design de l'API.
 >
-> [Question de calibration ou première leçon]
+> [Questions de clarification]
 
 Vas-y.
