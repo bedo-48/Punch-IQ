@@ -17,6 +17,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    scaler_path: Path = Path("models/boxing_scaler.pkl")
+
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     log_level: str = "INFO"
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
     # keeps the naming consistent when UFC is added (see plan.md Stretch goal 1).
     default_sport: str = "boxing"
     model_path: Path = Path("models/boxing_predictor.pkl")
-    processed_data_path: Path = Path("data/processed/fights.csv")
+    processed_data_path: Path = Path("data/processed/boxing/boxing_cleaned.csv")
 
     @property
     def cors_origins(self) -> list[str]:
