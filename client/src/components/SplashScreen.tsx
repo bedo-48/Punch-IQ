@@ -3,44 +3,83 @@ import { useEffect, useState } from 'react';
 
 interface SplashScreenProps {
   onComplete: () => void;
+  durationMs?: number;
 }
 
 
-export default function SplashScreen({ onComplete }: SplashScreenProps) {
-  const [fadeOut, setFadeOut] = useState(false);
+/**
+ * Editorial-style splash screen with anatomical hero and animated callouts.
+ * Auto-hides after `durationMs` (default 2500ms). Clicking skips immediately.
+ */
+export default function SplashScreen({ onComplete, durationMs = 2500 }: SplashScreenProps) {
+  const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
-    // Étape 1 : déclenche le fade-out après 2.5s
-    const fadeTimer = setTimeout(() => setFadeOut(true), 2500);
-    // Étape 2 : unmount complet après que le fade soit terminé (500ms plus tard)
-    const unmountTimer = setTimeout(() => onComplete(), 3000);
-
+    const t1 = setTimeout(() => setExiting(true), durationMs);
+    const t2 = setTimeout(() => onComplete(), durationMs + 600);
     return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(unmountTimer);
+      clearTimeout(t1);
+      clearTimeout(t2);
     };
-  }, [onComplete]);
+  }, [durationMs, onComplete]);
+
+  function skip() {
+    setExiting(true);
+    setTimeout(() => onComplete(), 600);
+  }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 bg-zinc-950 flex flex-col items-center justify-center transition-opacity duration-500 ${
-        fadeOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      }`}
-    >
-      <div className="text-center space-y-8 px-6">
-        <img
-          src="/splash.png"
-          alt="Boxers anatomy"
-          className="max-w-2xl max-h-[60vh] mx-auto opacity-70 grayscale select-none"
-        />
-        <div>
-          <h1 className="text-6xl font-bold tracking-tight">
-            <span className="text-red-500">Punch</span>IQ
-          </h1>
-          <p className="text-zinc-500 uppercase tracking-widest text-xs mt-3">
-            Boxing prediction · powered by machine learning
-          </p>
+    <div className={`splash ${exiting ? 'exiting' : ''}`} onClick={skip}>
+      <div className="splash-frame">
+        <div className="splash-eyebrow">
+          <span className="line"></span>
+          <span className="label">
+            <span style={{ color: 'var(--text-5)' }}>Plate I</span>
+            <span style={{ color: 'var(--text-5)', margin: '0 8px' }}>·</span>
+            Combat Anatomy
+            <span style={{ color: 'var(--text-5)', margin: '0 8px' }}>·</span>
+            <span className="red">v0.1</span>
+          </span>
+          <span className="line"></span>
         </div>
+
+        <div className="splash-figure">
+          <img src="/assets/anatomy.png" className="anatomy-img" alt="" />
+
+          <div className="callout" style={{ top: '18%', left: '0%', animationDelay: '1.1s' }}>
+            <span className="dot"></span>
+            <span className="line"></span>
+            <span>ANT. DELTOID</span>
+          </div>
+          <div className="callout right" style={{ top: '34%', right: '0%', animationDelay: '1.3s' }}>
+            <span>EXT. CARPI ULNARIS</span>
+            <span className="line"></span>
+            <span className="dot"></span>
+          </div>
+          <div className="callout" style={{ bottom: '22%', left: '-2%', animationDelay: '1.5s' }}>
+            <span className="dot"></span>
+            <span className="line"></span>
+            <span>RECTUS FEMORIS</span>
+          </div>
+          <div className="callout right" style={{ bottom: '36%', right: '-2%', animationDelay: '1.7s' }}>
+            <span>GLUTEUS MAXIMUS</span>
+            <span className="line"></span>
+            <span className="dot"></span>
+          </div>
+        </div>
+
+        <div className="splash-wordmark">
+          <span className="punch">Punch</span>
+          <span className="iq">IQ</span>
+        </div>
+
+        <div className="splash-tagline">— Boxing prediction &amp; analysis —</div>
+      </div>
+
+      <div className="splash-foot">
+        <div>RND_FOREST · 80.9% ACC · SHAP_v0.51</div>
+        <div className="dots"><span></span><span></span><span></span></div>
+        <div>2026 · PORTFOLIO · CLICK TO SKIP</div>
       </div>
     </div>
   );

@@ -46,8 +46,6 @@ def predict(
 ) -> PredictionResponse:
     """Pipeline complet d'une prédiction."""
     medians = artifacts.medians
-    print(f"DEBUG fighter_a: {fighter_a.model_dump()}")
-    print(f"DEBUG fighter_b: {fighter_b.model_dump()}")
 
     # === Étapes 1+2 : imputation + calcul des diff features ===
     diffs: dict[str, float] = {}
@@ -56,7 +54,6 @@ def predict(
         val_b = _impute(getattr(fighter_b, field), f"{field}_B", medians)
         diffs[f"{field}_diff"] = val_a - val_b
 
-    print(f"DEBUG diffs: {diffs}")
 
     # === Étape 3 : construire le numpy array dans l'ordre exact, puis scaler ===
     X = np.array([[diffs[col] for col in FEATURE_COLS]])  # shape (1, 7)

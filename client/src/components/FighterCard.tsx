@@ -1,76 +1,263 @@
-import FighterSearch from './FighterSearch';
+import { useEffect, useRef, useState } from 'react';
+
+import { searchFighters } from '../api';
 import type { Fighter, FighterMatch } from '../types';
+import { weightToDivision } from '../utils/division';
+import Flag from './Flag';
 
 
 interface FighterCardProps {
-  label: string;
-  fighter: Fighter;
-  onChange: (fighter: Fighter) => void;
+  side: 'A' | 'B';
+  sideColor: string;
+  fighter: Fighter | null;
+  onChange: (fighter: Fighter | null) => void;
 }
 
 
-export default function FighterCard({ label, fighter, onChange }: FighterCardProps) {
+export default function FighterCard({ side, sideColor, fighter, onChange }: FighterCardProps) {
+  const [search, setSearch] = useState('');
+  const [results, setResults] = useState<FighterMatch[]>([]);
+  const [openDropdown, setOpenDropdown] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Quand l'utilisateur sélectionne un boxeur dans l'autocomplete :
-  // on pré-remplit le form avec les stats du CSV (weight reste null car absent du CSV).
-  function handleSelect(match: FighterMatch) {
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    setLoading(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const matches = await searchFighters(q);
+        setResults(matches);
+        setActiveIdx(0);
+      } catch (err) {
+        console.error('Search error:', err);
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(timeoutId);
+  }, [search]);
+
+  function pickMatch(match: FighterMatch) {
     onChange({
       name: match.name,
       age: match.age,
       height: match.height,
-      weight: null,                  // pas dans fighters.csv → user doit le rentrer
+      weight: null,
       won: match.won,
       lost: match.lost,
       drawn: match.drawn,
       kos: match.kos,
+      country: match.country,
+      stance: match.stance,
     });
+    setSearch('');
+    setOpenDropdown(false);
+    setResults([]);
   }
 
-  // Met à jour un seul champ sans toucher les autres.
-  function handleField<K extends keyof Fighter>(field: K, value: Fighter[K]) {
-    onChange({ ...fighter, [field]: value });
+  function clearAndFocus() {
+    onChange(null);
+    setSearch('');
+    setOpenDropdown(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
   }
+
+  function onKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.min(results.length - 1, i + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(0, i - 1));
+    } else if (e.key === 'Enter' && results[activeIdx]) {
+      e.preventDefault();
+      pickMatch(results[activeIdx]);
+    } else if (e.key === 'Escape') {
+      setOpenDropdown(false);
+    }
+  }
+
+  function setField<K extends keyof Fighter>(key: K) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!fighter) return;
+      const raw = e.target.value;
+      if (raw === '') {
+        onChange({ ...fighter, [key]: null });
+        return;
+      }
+      const num = parseFloat(raw.replace(/[^\d.]/g, ''));
+      if (!isNaN(num)) {
+        onChange({ ...fighter, [key]: num as Fighter[K] });
+      }
+    };
+  }
+
+  const division = fighter ? weightToDivision(fighter.weight) : '';
+  const koPct =
+    fighter && fighter.won
+      ? Math.round(((fighter.kos ?? 0) / fighter.won) * 100)
+      : 0;
 
   return (
-    <div className="space-y-3">
-      <FighterSearch label={label} onSelect={handleSelect} />
-
-      <div className="grid grid-cols-2 gap-3 pt-2">
-        <NumberField label="Age"          value={fighter.age}    onChange={(v) => handleField('age', v)} />
-        <NumberField label="Height (cm)"  value={fighter.height} onChange={(v) => handleField('height', v)} />
-        <NumberField label="Weight (kg)"  value={fighter.weight} onChange={(v) => handleField('weight', v)} />
-        <NumberField label="KOs"          value={fighter.kos}    onChange={(v) => handleField('kos', v)} />
-        <NumberField label="Wins"         value={fighter.won}    onChange={(v) => handleField('won', v)} />
-        <NumberField label="Losses"       value={fighter.lost}   onChange={(v) => handleField('lost', v)} />
-        <NumberField label="Draws"        value={fighter.drawn}  onChange={(v) => handleField('drawn', v)} />
+    <div
+      className={`fighter-card side-${side}`}
+      style={{ '--side-color': sideColor } as React.CSSProperties}
+    >
+      <div className="fc-head">
+        <span className="fc-side-badge">
+          <span className="dot"></span>
+          Fighter&nbsp;{side}
+        </span>
+        {fighter ? (
+          <button
+            className="fc-division"
+            onClick={clearAndFocus}
+            style={{
+              appearance: 'none',
+              background: 'transparent',
+              border: 0,
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+            }}
+          >
+            ↻ change
+          </button>
+        ) : (
+          <span className="fc-division">
+            {loading
+              ? 'searching…'
+              : search.length >= 2
+              ? `${results.length} matches`
+              : 'type to search'}
+          </span>
+        )}
       </div>
+
+      {!fighter && (
+        <div className="fc-search-wrap">
+          <svg
+            className="fc-search-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="M21 21l-4.3-4.3"></path>
+          </svg>
+          <input
+            ref={inputRef}
+            className="fc-search-input"
+            placeholder="Search fighter by name…"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setOpenDropdown(true);
+            }}
+            onFocus={() => setOpenDropdown(true)}
+            onBlur={() => setTimeout(() => setOpenDropdown(false), 180)}
+            onKeyDown={onKey}
+          />
+          {openDropdown && search.trim().length >= 2 && (
+            <div className="fc-dropdown">
+              {results.length === 0 && !loading && (
+                <div className="fc-dropdown-empty">
+                  No fighter matches "{search}".
+                </div>
+              )}
+              {results.map((f, i) => (
+                <button
+                  key={f.name}
+                  className="fc-dropdown-item"
+                  style={
+                    i === activeIdx
+                      ? { background: 'var(--surface-3)', color: 'var(--text)' }
+                      : undefined
+                  }
+                  onMouseEnter={() => setActiveIdx(i)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pickMatch(f);
+                  }}
+                >
+                  <Flag country={f.country} size={18} />
+                  <span className="name">{f.name}</span>
+                  <span className="meta">
+                    {f.country ?? '—'}
+                    {f.stance ? ` · ${f.stance}` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {fighter && (
+        <>
+          <div className="fc-identity">
+            <div className="fc-name">{fighter.name}</div>
+            <div className="fc-sub">
+              <span>{division}</span>
+              <span className="dot"></span>
+              <span>
+                Record {fighter.won ?? '?'}–{fighter.lost ?? '?'}
+                {fighter.drawn ? `–${fighter.drawn}` : ''}
+              </span>
+            </div>
+          </div>
+
+          <div className="stats-grid">
+            <StatCell label="Age"     value={fighter.age}    unit="yr" onChange={setField('age')} />
+            <StatCell label="Height"  value={fighter.height} unit="cm" onChange={setField('height')} />
+            <StatCell label="Weight"  value={fighter.weight} unit="kg" onChange={setField('weight')} />
+            <StatCell label="Wins"    value={fighter.won}    onChange={setField('won')} />
+            <StatCell label="Losses"  value={fighter.lost}   onChange={setField('lost')} />
+            <StatCell label="Draws"   value={fighter.drawn}  onChange={setField('drawn')} />
+            <StatCell label="KO Wins" value={fighter.kos}    onChange={setField('kos')} accent />
+            <StatCell label="KO %"    value={koPct}          unit="%" readOnly />
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 
-// Helper sub-component : un input numérique avec label, qui gère null ↔ string vide.
-interface NumberFieldProps {
+interface StatCellProps {
   label: string;
   value: number | null;
-  onChange: (value: number | null) => void;
+  unit?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  readOnly?: boolean;
+  accent?: boolean;
 }
 
-function NumberField({ label, value, onChange }: NumberFieldProps) {
+function StatCell({ label, value, unit, onChange, readOnly, accent }: StatCellProps) {
   return (
-    <label className="block">
-      <span className="text-xs uppercase tracking-wider text-zinc-500">{label}</span>
-      <input
-        type="number"
-        value={value ?? ''}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v === '') return onChange(null);
-          const n = parseFloat(v);
-          onChange(isNaN(n) ? null : n);
-        }}
-        className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-red-500"
-      />
-    </label>
+    <div className={`stat-cell ${accent ? 'accent' : ''}`}>
+      <span className="label">{label}</span>
+      <span className="value">
+        {readOnly ? (
+          <span className="ro tnum">{value !== null ? value : '—'}</span>
+        ) : (
+          <input
+            className="tnum"
+            type="text"
+            inputMode="numeric"
+            value={value !== null ? value : ''}
+            onChange={onChange}
+          />
+        )}
+        {unit && <span className="unit">{unit}</span>}
+      </span>
+    </div>
   );
 }

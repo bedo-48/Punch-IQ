@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import FighterCard from './components/FighterCard';
 import PredictionPanel from './components/PredictionPanel';
@@ -7,27 +7,22 @@ import { predictFight } from './api';
 import type { Fighter, PredictionResponse } from './types';
 
 
-const EMPTY_FIGHTER: Fighter = {
-  name: null,
-  age: null,
-  height: null,
-  weight: null,
-  won: null,
-  lost: null,
-  drawn: null,
-  kos: null,
-};
+const SIDE_A_COLOR = 'var(--accent-2)';
+const SIDE_B_COLOR = 'var(--blue)';
 
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [fighterA, setFighterA] = useState<Fighter>(EMPTY_FIGHTER);
-  const [fighterB, setFighterB] = useState<Fighter>(EMPTY_FIGHTER);
+  const [fighterA, setFighterA] = useState<Fighter | null>(null);
+  const [fighterB, setFighterB] = useState<Fighter | null>(null);
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handlePredict() {
+  const canPredict = !!(fighterA && fighterB && fighterA.name && fighterB.name);
+
+  async function runPredict() {
+    if (!canPredict || !fighterA || !fighterB) return;
     setLoading(true);
     setError(null);
     try {
@@ -40,63 +35,140 @@ function App() {
     }
   }
 
-  const canPredict = fighterA.name !== null && fighterB.name !== null;
+  function swap() {
+    const tmp = fighterA;
+    setFighterA(fighterB);
+    setFighterB(tmp);
+  }
+
+  useEffect(() => {
+    setResult(null);
+  }, [fighterA, fighterB]);
 
   return (
     <>
       {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
 
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-        <header className="border-b border-zinc-800 px-6 py-4">
-          <div className="max-w-5xl mx-auto flex items-center gap-3">
-            <span className="text-2xl font-bold tracking-tight">
-              <span className="text-red-500">Punch</span>IQ
-            </span>
-            <span className="text-xs text-zinc-500 tracking-wider uppercase">
-              Boxing prediction & analysis
-            </span>
+      <div className="app">
+        <header className="header">
+          <div className="header-brand">
+            <div className="brand-mark">
+              <span className="punch">Punch</span>
+              <span className="iq">IQ</span>
+            </div>
+            <div className="brand-tag">Boxing prediction &amp; analysis</div>
+          </div>
+          <div className="header-meta">
+            <div className="model-badge">
+              <span className="pip"></span>
+              MODEL v0.1 · ONLINE
+            </div>
+            <div className="eyebrow">Random Forest · 80.9% accuracy · SHAP</div>
           </div>
         </header>
 
-        <main className="flex-1 px-6 py-8">
-          <div className="max-w-5xl mx-auto space-y-8">
-
-            <section className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
-              <h2 className="text-lg font-semibold mb-1">Fight Setup</h2>
-              <p className="text-sm text-zinc-400 mb-6">
-                Search for two fighters by name. Stats pre-fill from the database — adjust if needed.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <FighterCard label="Fighter A" fighter={fighterA} onChange={setFighterA} />
-                <FighterCard label="Fighter B" fighter={fighterB} onChange={setFighterB} />
-              </div>
-
-              <div className="mt-8 flex justify-end">
-                <button
-                  onClick={handlePredict}
-                  disabled={!canPredict || loading}
-                  className="px-6 py-2 bg-red-600 hover:bg-red-500 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-md text-sm font-semibold tracking-wider uppercase transition-colors"
-                >
-                  {loading ? 'Predicting...' : 'Predict'}
-                </button>
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
-              <h2 className="text-lg font-semibold mb-1">Prediction</h2>
-              <p className="text-sm text-zinc-400 mb-6">
-                Probabilities and per-feature SHAP contributions.
-              </p>
-              <PredictionPanel result={result} loading={loading} error={error} />
-            </section>
-
+        <section className="section">
+          <div className="section-head">
+            <div className="section-title">
+              <span className="idx">001 /</span>
+              <span className="mark"></span>
+              <span className="label">Fight Setup</span>
+            </div>
+            <span className="section-aside">Select two fighters · stats editable inline</span>
           </div>
-        </main>
 
-        <footer className="border-t border-zinc-800 px-6 py-4">
-          <div className="max-w-5xl mx-auto text-xs text-zinc-500">
-            Random Forest · 80.9% accuracy · SHAP explainability
+          <div className="fight-setup">
+            <FighterCard
+              side="A"
+              sideColor={SIDE_A_COLOR}
+              fighter={fighterA}
+              onChange={setFighterA}
+            />
+            <div className="vs-divider">
+              <span className="vs-mark">vs.</span>
+              <button
+                className="vs-swap"
+                onClick={swap}
+                title="Swap fighters"
+                aria-label="Swap fighters"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="17 1 21 5 17 9"></polyline>
+                  <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                  <polyline points="7 23 3 19 7 15"></polyline>
+                  <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                </svg>
+              </button>
+            </div>
+            <FighterCard
+              side="B"
+              sideColor={SIDE_B_COLOR}
+              fighter={fighterB}
+              onChange={setFighterB}
+            />
+          </div>
+
+          <button
+            className="predict-btn"
+            disabled={!canPredict || loading}
+            onClick={runPredict}
+          >
+            {loading ? (
+              <>
+                <span className="pulse"></span>
+                <span>Running Random Forest…</span>
+              </>
+            ) : (
+              <>
+                <span>Predict Fight</span>
+                <span className="arrow">→</span>
+              </>
+            )}
+          </button>
+        </section>
+
+        <section className="section">
+          <div className="section-head">
+            <div className="section-title">
+              <span className="idx">002 /</span>
+              <span className="mark"></span>
+              <span className="label">Prediction</span>
+            </div>
+            <span className="section-aside">
+              {result
+                ? `Model confidence · margin ${(Math.abs(result.probability_win_a - 0.5) * 200).toFixed(1)}%`
+                : 'Output pending'}
+            </span>
+          </div>
+
+          <PredictionPanel
+            result={result}
+            loading={loading}
+            error={error}
+            a={fighterA}
+            b={fighterB}
+          />
+        </section>
+
+        <footer className="footer">
+          <div className="credit">
+            <span className="key">Random Forest</span>
+            <span className="sep">·</span>
+            <span>80.9% accuracy</span>
+            <span className="sep">·</span>
+            <span>SHAP explainability</span>
+          </div>
+          <div className="credit">
+            <span>BoxRec ingest 2026.05</span>
+            <span className="sep">·</span>
+            <span className="key">Portfolio v0.1</span>
           </div>
         </footer>
       </div>
