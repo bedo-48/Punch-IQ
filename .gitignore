@@ -47,6 +47,7 @@ Thumbs.db
 # ---------- PunchIQ data + model artifacts ----------
 # Keep the directory structure via .gitkeep, ignore the contents.
 server/data/raw/*
+!server/data/raw/boxing/fighters.csv
 server/data/interim/*
 server/data/processed/*
 !server/data/**/.gitkeep
