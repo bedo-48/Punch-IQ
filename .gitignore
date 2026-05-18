@@ -53,6 +53,8 @@ server/data/processed/*
 
 # Trained model artifacts (can be heavy; ship via releases or LFS if needed)
 server/models/*
+!server/models/*.pkl
+!server/models/*.json
 !server/models/.gitkeep
 
 # Scraper cache (added later when we build scrape_boxrec.py)
